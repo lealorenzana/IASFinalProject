@@ -1,4 +1,5 @@
 <?php
+ob_start(); // Start output buffering to allow headers to be sent
 require 'config.php';
 requireLogin();
 
@@ -40,9 +41,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $stmt->execute([$user_id]);
         $stored_answer = $stmt->fetch()['security_answer'];
         if (verifyPassword($security_answer, $stored_answer)) {
+            // Log BEFORE deleting user (important for foreign key constraint)
+            logAudit($user_id, 'deletion', 'success');
+            
+            // Now delete the user
             $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
             if ($stmt->execute([$user_id])) {
-                logAudit($user_id, 'deletion', 'success');
                 session_destroy();
                 header('Location: login.php?deleted=1');
                 exit;
@@ -58,6 +62,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 $stmt = $pdo->prepare("SELECT full_name, email, contact_number, address, birthdate, security_question FROM users WHERE id = ?");
 $stmt->execute([$user_id]);
 $user = $stmt->fetch();
+
+// If user doesn't exist (was deleted), redirect to login
+if (!$user) {
+    session_destroy();
+    header('Location: login.php?deleted=1');
+    exit;
+}
+
 $decrypted_contact  = decryptData($user['contact_number']);
 $decrypted_address  = decryptData($user['address']);
 $decrypted_birthdate= decryptData($user['birthdate']);
@@ -596,7 +608,7 @@ $decrypted_birthdate= decryptData($user['birthdate']);
         </nav>
         <div class="sidebar-footer">
             <div class="user-chip">
-                <div class="avatar"><?php echo strtoupper(substr($user['full_name'], 0, 1)); ?></div>
+                <div class="avatar"><?php echo htmlspecialchars(strtoupper(substr($user['full_name'], 0, 1))); ?></div>
                 <div class="user-info">
                     <div class="user-name"><?php echo htmlspecialchars($user['full_name']); ?></div>
                     <div class="user-role"><?php echo htmlspecialchars($_SESSION['role']); ?></div>
@@ -740,10 +752,12 @@ $decrypted_birthdate= decryptData($user['birthdate']);
                                 <input type="password" id="security_answer_delete" name="security_answer_delete" placeholder="Your security answer" required>
                             </div>
                         </div>
-                        <button type="submit" name="delete" class="btn btn-danger" id="deleteBtn">
+                        <button type="submit" name="delete" value="1" class="btn btn-danger" id="deleteBtn">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                             Delete My Account
                         </button>
+                        <!-- Backup hidden input for browser compatibility -->
+                        <input type="hidden" name="delete" value="1">
                     </form>
                 </div>
             </div>

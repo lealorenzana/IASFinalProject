@@ -502,7 +502,7 @@ $last_login = isset($logins[1]) ? $logins[1]['timestamp'] : ($logins[0]['timesta
 
         <div class="sidebar-footer">
             <div class="user-chip">
-                <div class="avatar"><?php echo strtoupper(substr($user['full_name'], 0, 1)); ?></div>
+                <div class="avatar"><?php echo htmlspecialchars(strtoupper(substr($user['full_name'], 0, 1))); ?></div>
                 <div class="user-info">
                     <div class="user-name"><?php echo htmlspecialchars($user['full_name']); ?></div>
                     <div class="user-role"><?php echo htmlspecialchars($role); ?></div>
